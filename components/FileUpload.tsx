@@ -1,16 +1,22 @@
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UploadIcon, CheckIcon } from './icons';
 
 interface FileUploadProps {
   id: string;
   label: string;
   onFileSelect: (file: File) => void;
+  imageSrc: string | null;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ id, label, onFileSelect }) => {
+export const FileUpload: React.FC<FileUploadProps> = ({ id, label, onFileSelect, imageSrc }) => {
   const [fileName, setFileName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (imageSrc === null) {
+      setFileName('');
+    }
+  }, [imageSrc]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

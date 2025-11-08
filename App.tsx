@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { CanvasArea } from './components/CanvasArea';
-import { DownloadIcon, NewTabIcon, LoaderIcon } from './components/icons';
+import { DownloadIcon, NewTabIcon, LoaderIcon, ResetIcon } from './components/icons';
 
 const App: React.FC = () => {
   const [headerImage, setHeaderImage] = useState<string | null>(null);
@@ -80,22 +80,53 @@ const App: React.FC = () => {
     }
   }, [headerImage, activityImage, headerHeight]);
 
+  const handleNewActivity = () => {
+    const confirmReset = window.confirm("Você tem certeza que deseja começar uma nova atividade? O trabalho atual será perdido.");
+    if (confirmReset) {
+      setHeaderImage(null);
+      setActivityImage(null);
+      setHeaderHeight(25);
+
+      // Manually reset the file input elements to allow re-uploading the same file
+      const headerInput = document.getElementById('header-upload') as HTMLInputElement;
+      if (headerInput) headerInput.value = '';
+
+      const activityInput = document.getElementById('activity-upload') as HTMLInputElement;
+      if (activityInput) activityInput.value = '';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
       <Header />
       <main className="flex-grow container mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8">
         <aside className="w-full lg:w-1/3 xl:w-1/4 bg-white p-6 rounded-2xl shadow-lg h-fit">
-          <h2 className="text-2xl font-bold text-slate-700 mb-6 border-b pb-4">Configurações</h2>
+          <div className="flex justify-between items-center mb-6 border-b pb-4">
+            <h2 className="text-2xl font-bold text-slate-700">Configurações</h2>
+            {(headerImage || activityImage) && (
+              <button
+                onClick={handleNewActivity}
+                className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors"
+                title="Começar uma nova atividade"
+              >
+                <ResetIcon />
+                <span>Nova Atividade</span>
+              </button>
+            )}
+          </div>
+
           <div className="space-y-6">
             <FileUpload
               id="header-upload"
               label="1. Importar Cabeçalho"
               onFileSelect={(file) => handleFileChange(file, setHeaderImage)}
+              imageSrc={headerImage}
             />
             <FileUpload
               id="activity-upload"
               label="2. Importar Atividade"
               onFileSelect={(file) => handleFileChange(file, setActivityImage)}
+              imageSrc={activityImage}
             />
           </div>
           
