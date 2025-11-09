@@ -20,7 +20,7 @@ export const CanvasArea = forwardRef<HTMLDivElement, CanvasAreaProps>(({ headerI
     >
       {activityImage ? (
         <>
-          <img src={activityImage} alt="Atividade" className="absolute inset-0 w-full h-full object-contain" />
+          <img src={activityImage} alt="Atividade" className="absolute inset-0 w-full h-full object-contain activity-image-for-capture" />
           {headerImage && (
             <div 
               className="header-area-indicator absolute top-0 left-0 w-full bg-blue-500 bg-opacity-10 border-b-2 border-dashed border-blue-400 pointer-events-none"
