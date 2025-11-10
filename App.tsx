@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { CanvasArea } from './components/CanvasArea';
-import { DownloadIcon, LoaderIcon, ResetIcon, SparklesIcon, ErrorIcon, CheckIcon } from './components/icons';
+import { DownloadIcon, LoaderIcon, ResetIcon, SparklesIcon, ErrorIcon, CheckIcon, PrintIcon } from './components/icons';
 
 interface QueueItem {
   id: string;
@@ -19,8 +19,9 @@ interface QueueItem {
 const App: React.FC = () => {
   const [headerImage, setHeaderImage] = useState<string | null>(null);
   const [activityImage, setActivityImage] = useState<string | null>(null);
-  const [headerHeight, setHeaderHeight] = useState<number>(25); // Default height 25%
+  const [headerHeight, setHeaderHeight] = useState<number>(25);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [isPrinting, setIsPrinting] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = (file: File, setImage: React.Dispatch<React.SetStateAction<string | null>>) => {
@@ -50,6 +51,8 @@ const App: React.FC = () => {
           tempActivity.src = config.activityImage;
           tempActivity.className = "absolute inset-0 w-full h-full object-contain activity-image-for-capture";
           canvasElement.insertBefore(tempActivity, canvasElement.firstChild);
+      } else if(existingActivityImage && existingActivityImage.src !== config.activityImage) {
+        existingActivityImage.src = config.activityImage;
       }
 
       tempHeader.src = config.headerImage;
@@ -140,6 +143,72 @@ const App: React.FC = () => {
     setQueue(prev => [...prev, newItem]);
   };
   
+  const handlePrint = (dataUrl: string) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.display = 'none';
+
+    const handleLoad = () => {
+      if (!iframe.contentWindow) return;
+
+      const handleAfterPrint = () => {
+        document.body.removeChild(iframe);
+        window.removeEventListener('afterprint', handleAfterPrint);
+      };
+
+      window.addEventListener('afterprint', handleAfterPrint);
+
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    };
+
+    iframe.addEventListener('load', handleLoad);
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <html>
+        <head>
+          <title>Imprimir Atividade</title>
+          <style>
+            @page { size: A4; margin: 0; }
+            body, html { margin: 0; padding: 0; height: 100vh; }
+            img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; margin: auto; }
+          </style>
+        </head>
+        <body>
+          <img src="${dataUrl}" />
+        </body>
+      </html>
+    `);
+    doc.close();
+  };
+  
+  const handleDirectPrint = async () => {
+    if (!headerImage || !activityImage) {
+      alert("Por favor, carregue a imagem do cabeçalho e da atividade.");
+      return;
+    }
+    
+    setIsPrinting(true);
+    try {
+      const config = { headerImage, activityImage, headerHeight };
+      const dataUrl = await generateImageForQueue(config);
+      handlePrint(dataUrl);
+    } catch (error) {
+      console.error("Error generating image for printing:", error);
+      alert("Ocorreu um erro ao gerar a imagem para impressão. Por favor, tente novamente.");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   const getStatusBadge = (status: QueueItem['status']) => {
     switch (status) {
       case 'queued':
@@ -180,22 +249,41 @@ const App: React.FC = () => {
           {headerImage && activityImage && (
             <>
               <div className="mt-8 border-t pt-6">
-                <h3 className="text-xl font-bold text-slate-700 mb-4">3. Ajustar Área</h3>
-                <div>
-                  <label htmlFor="header-height" className="block text-lg font-semibold text-slate-600 mb-3"> Altura do Cabeçalho </label>
-                  <div className="flex items-center gap-4">
-                    <input id="header-height" type="range" min="5" max="50" value={headerHeight} onChange={(e) => setHeaderHeight(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
-                    <span className="font-semibold text-slate-600 w-12 text-right">{headerHeight}%</span>
-                  </div>
-                </div>
+                <h3 className="text-xl font-bold text-slate-700 mb-4">3. Ajustar Altura</h3>
+                 <label htmlFor="header-height" className="block text-sm font-medium text-slate-600 mb-2">
+                  Altura do Cabeçalho: <span className="font-bold">{headerHeight}%</span>
+                </label>
+                <input
+                  id="header-height"
+                  type="range"
+                  min="10"
+                  max="40"
+                  value={headerHeight}
+                  onChange={(e) => setHeaderHeight(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                />
               </div>
-
               <div className="mt-8 border-t pt-6">
                 <h3 className="text-xl font-bold text-slate-700 mb-4">4. Gerar</h3>
-                <button onClick={handleGenerateClick} className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center disabled:bg-blue-300">
-                  <SparklesIcon />
-                  <span className="ml-2">Adicionar à Fila</span>
-                </button>
+                 <div className="flex flex-col sm:flex-row gap-3">
+                  <button 
+                    onClick={handleGenerateClick} 
+                    className="flex-grow bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center disabled:bg-slate-400"
+                    disabled={isPrinting}
+                  >
+                    <SparklesIcon />
+                    <span className="ml-2">Adicionar à Fila</span>
+                  </button>
+                  <button 
+                      onClick={handleDirectPrint} 
+                      disabled={isPrinting}
+                      className="flex-shrink-0 bg-white border border-slate-300 text-slate-700 font-bold py-3 px-4 rounded-lg hover:bg-slate-100 transition-colors flex items-center justify-center disabled:bg-slate-200 disabled:text-slate-500"
+                      title="Gerar e Imprimir"
+                  >
+                      {isPrinting ? <LoaderIcon /> : <PrintIcon />}
+                      <span className="ml-2">{isPrinting ? 'Gerando...' : 'Imprimir'}</span>
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -211,9 +299,14 @@ const App: React.FC = () => {
                       {getStatusBadge(item.status)}
                     </div>
                     {item.status === 'completed' && item.result && (
-                      <a href={item.result} download={`${item.name}.png`} title="Baixar Atividade" className="text-blue-600 hover:text-blue-800">
-                        <DownloadIcon />
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <a href={item.result} download={`${item.name}.png`} title="Baixar Atividade" className="text-blue-600 hover:text-blue-800">
+                          <DownloadIcon />
+                        </a>
+                        <button onClick={() => handlePrint(item.result!)} title="Imprimir Atividade" className="text-slate-600 hover:text-slate-800">
+                          <PrintIcon />
+                        </button>
+                      </div>
                     )}
                   </li>
                 ))}
